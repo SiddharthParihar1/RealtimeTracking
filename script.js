@@ -2,10 +2,61 @@ let map, myMarker, myPath, watchId;
 const key = 'mFAtrJRBs32fMCgKsHiM';
 const users = {};
 let myUsername = '';
+let showOthers = false;
 
 function initMap() {
-    map = L.map('map').setView([0, 0], 2);
-    L.tileLayer(`https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${key}`, {
+    console.log('Initializing map...');
+    try {
+        if (map) {
+            console.log('Map already initialized, resetting view');
+            map.setView([0, 0], 2);
+            return;
+        }
+
+        map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView([0, 0], 2);
+
+        L.control.zoom({
+            position: 'bottom-right'
+        }).addTo(map);
+
+        setMapLayer('streets');
+
+        L.control.scale({
+            maxWidth: 200,
+            metric: true,
+            imperial: false,
+            position: 'bottom-left'
+        }).addTo(map);
+
+        console.log('Map initialized successfully');
+    } catch (error) {
+        console.error('Error initializing map:', error);
+        alert('Failed to initialize map. Please refresh the page and try again.');
+    }
+}
+
+function setMapLayer(type) {
+    console.log('Setting map layer:', type);
+    if (map.baseLayer) {
+        map.removeLayer(map.baseLayer);
+    }
+
+    let url;
+    switch (type) {
+        case 'satellite':
+            url = `https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=${key}`;
+            break;
+        case 'hybrid':
+            url = `https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=${key}`;
+            break;
+        default:
+            url = `https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${key}`;
+    }
+
+    map.baseLayer = L.tileLayer(url, {
         tileSize: 512,
         zoomOffset: -1,
         minZoom: 1,
@@ -14,36 +65,42 @@ function initMap() {
     }).addTo(map);
 }
 
-function setUsername() {
-    const usernameInput = document.getElementById('usernameInput');
-    myUsername = usernameInput.value.trim();
-    if (myUsername) {
-        document.getElementById('usernameSection').style.display = 'none';
-        document.getElementById('controls').style.display = 'block';
-        alert(`Username set to: ${myUsername}`);
-    } else {
-        alert('Please enter a valid username');
-    }
-}
-
 function startTracking() {
+    console.log('Starting tracking...');
+    const usernameInput = document.getElementById('usernameInput');
+    const showOthersSelect = document.getElementById('showOthers');
+    
+    myUsername = usernameInput.value.trim();
+    showOthers = showOthersSelect.value === 'yes';
+
     if (!myUsername) {
-        alert('Please set a username before starting tracking');
+        alert('Please enter a valid username');
         return;
     }
+
+    document.getElementById('setupModal').style.display = 'none';
+    document.getElementById('controls').classList.remove('hidden');
+    if (showOthers) {
+        document.getElementById('userList').classList.remove('hidden');
+    }
+
+    initMap(); // Ensure map is initialized
+
     if ("geolocation" in navigator) {
-        myPath = L.polyline([], { color: 'blue' }).addTo(map);
+        myPath = L.polyline([], { color: '#4285F4' }).addTo(map);
         watchId = navigator.geolocation.watchPosition(updatePosition, handleError, {
             enableHighAccuracy: true,
             maximumAge: 30000,
             timeout: 27000
         });
+        console.log('Geolocation watch started');
     } else {
         alert("Geolocation is not supported by your browser");
     }
 }
 
 function stopTracking() {
+    console.log('Stopping tracking...');
     if (watchId !== undefined) {
         navigator.geolocation.clearWatch(watchId);
         watchId = undefined;
@@ -56,9 +113,16 @@ function stopTracking() {
             myPath = null;
         }
     }
+    document.getElementById('setupModal').style.display = 'flex';
+    document.getElementById('controls').classList.add('hidden');
+    document.getElementById('userList').classList.add('hidden');
+    Object.values(users).forEach(user => map.removeLayer(user.marker));
+    users = {};
+    console.log('Tracking stopped');
 }
 
 function updatePosition(position) {
+    console.log('Updating position:', position);
     const lat = position.coords.latitude;
     const lng = position.coords.longitude;
     const latlng = [lat, lng];
@@ -72,64 +136,97 @@ function updatePosition(position) {
     myPath.addLatLng(latlng);
     map.setView(latlng);
 
-    // Simulate other users (replace this with actual multi-user implementation)
-    simulateOtherUsers();
+    // Here you would send the user's location to your server
+    // sendLocationToServer(myUsername, lat, lng);
+
+    if (showOthers) {
+        fetchOtherUsers();
+    }
 }
 
 function handleError(error) {
-    console.error("Error: " + error.message);
-    alert("An error occurred while tracking location.");
+    console.error("Geolocation error:", error);
+    alert(`An error occurred while tracking location: ${error.message}`);
 }
 
 function createCustomIcon(userName) {
     return L.divIcon({
         className: 'custom-icon',
-        html: `<div class="bg-blue-500 text-white p-2 rounded-full">${userName}</div>`
+        html: `<div class="bg-blue-500 text-white p-2 rounded-full">${userName[0].toUpperCase()}</div>`
     });
 }
 
-function simulateOtherUsers() {
-    const userNames = ['Alice', 'Bob', 'Charlie'];
-    userNames.forEach(name => {
-        if (name === myUsername) return; // Skip if it's the current user
-        if (!users[name]) {
-            const lat = myMarker.getLatLng().lat + (Math.random() - 0.5) * 0.01;
-            const lng = myMarker.getLatLng().lng + (Math.random() - 0.5) * 0.01;
-            users[name] = {
-                marker: L.marker([lat, lng], {icon: createCustomIcon(name)}).addTo(map),
-                path: L.polyline([], { color: getRandomColor() }).addTo(map)
-            };
-        } else {
-            const lat = users[name].marker.getLatLng().lat + (Math.random() - 0.5) * 0.001;
-            const lng = users[name].marker.getLatLng().lng + (Math.random() - 0.5) * 0.001;
-            users[name].marker.setLatLng([lat, lng]);
-            users[name].path.addLatLng([lat, lng]);
-        }
+function fetchOtherUsers() {
+    console.log('Fetching other users...');
+    // This is where you would fetch other users' locations from your server
+    // For demonstration, we'll use random locations
+    const dummyUsers = ['User1', 'User2', 'User3'];
+    dummyUsers.forEach(name => {
+        if (name === myUsername) return;
+        const lat = myMarker.getLatLng().lat + (Math.random() - 0.5) * 0.1;
+        const lng = myMarker.getLatLng().lng + (Math.random() - 0.5) * 0.1;
+        updateUserMarker(name, lat, lng);
     });
     updateUserList();
 }
 
-function getRandomColor() {
-    return "#" + Math.floor(Math.random()*16777215).toString(16);
+function updateUserMarker(name, lat, lng) {
+    console.log('Updating user marker:', name, lat, lng);
+    if (!users[name]) {
+        users[name] = {
+            marker: L.marker([lat, lng], {icon: createCustomIcon(name)}).addTo(map),
+        };
+    } else {
+        users[name].marker.setLatLng([lat, lng]);
+    }
 }
 
 function updateUserList() {
+    console.log('Updating user list');
     const userListElement = document.getElementById('userList');
     userListElement.innerHTML = '<h3 class="font-bold mb-2">Active Users</h3>';
-    const activeUsers = [myUsername, ...Object.keys(users)];
-    activeUsers.forEach(name => {
+    Object.keys(users).forEach(name => {
         const div = document.createElement('div');
-        div.className = 'mb-2 p-2 bg-white rounded shadow';
-        div.textContent = name;
+        div.className = 'mb-2 p-2 bg-gray-100 rounded flex justify-between items-center';
+        div.innerHTML = `
+            <span>${name}</span>
+            <button class="bg-blue-500 text-white px-2 py-1 rounded text-sm" onclick="navigateToUser('${name}')">Navigate</button>
+        `;
         userListElement.appendChild(div);
     });
 }
 
+function navigateToUser(username) {
+    console.log('Navigating to user:', username);
+    const user = users[username];
+    if (user && user.marker) {
+        const userLatLng = user.marker.getLatLng();
+        const myLatLng = myMarker.getLatLng();
+        
+        // Calculate route (in a real app, you'd use a routing service here)
+        const routePoints = [myLatLng, userLatLng];
+        
+        // Draw route on map
+        if (window.routeLine) {
+            map.removeLayer(window.routeLine);
+        }
+        window.routeLine = L.polyline(routePoints, {color: 'red', weight: 3}).addTo(map);
+        
+        // Fit map to show entire route
+        map.fitBounds(L.latLngBounds(routePoints));
+    }
+}
+
 document.addEventListener('DOMContentLoaded', (event) => {
-    initMap();
-    document.getElementById('setUsername').addEventListener('click', setUsername);
-    document.getElementById('startTracking').addEventListener('click', startTracking);
+    console.log('DOM fully loaded and parsed');
+    initMap(); // Initialize map on page load
+    document.getElementById('startButton').addEventListener('click', startTracking);
     document.getElementById('stopTracking').addEventListener('click', stopTracking);
-    document.getElementById('controls').style.display = 'none'; // Hide controls initially
+    document.getElementById('mapType').addEventListener('change', (e) => setMapLayer(e.target.value));
 });
+
+window.onerror = function(message, source, lineno, colno, error) {
+    console.error('Global error:', message, 'at', source, lineno, colno, error);
+    alert('An unexpected error occurred. Please check the console for more details.');
+}
 

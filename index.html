@@ -3,37 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-User Location Tracker</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <title>Enhanced Location Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
         #map { height: 100%; width: 100%; }
-        .custom-icon { background-color: #3498db; color: white; padding: 5px; border-radius: 50%; }
+        .custom-icon { background-color: #4285F4; color: white; padding: 5px; border-radius: 50%; }
+        .leaflet-control-zoom { box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+        .leaflet-control-zoom a { background-color: white; color: #666; }
     </style>
 </head>
 <body class="h-screen flex flex-col">
-    <header class="bg-blue-600 text-white p-4">
-        <h1 class="text-2xl font-bold">Multi-User Location Tracker</h1>
-    </header>
-    <main class="flex-grow flex">
-        <div id="sidebar" class="w-64 bg-gray-100 p-4 flex flex-col">
-            <div id="usernameSection" class="mb-4">
-                <input type="text" id="usernameInput" placeholder="Enter username" class="w-full p-2 border rounded">
-                <button id="setUsername" class="mt-2 w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Set Username</button>
+    <div id="setupModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-xl w-96">
+            <h2 class="text-2xl font-bold mb-4">Setup</h2>
+            <div class="mb-4">
+                <label for="usernameInput" class="block text-sm font-medium text-gray-700">Username</label>
+                <input type="text" id="usernameInput" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
             </div>
-            <div id="controls" class="mb-4">
-                <button id="startTracking" class="w-full bg-green-500 text-white p-2 rounded hover:bg-green-600 mb-2">Start Tracking</button>
-                <button id="stopTracking" class="w-full bg-red-500 text-white p-2 rounded hover:bg-red-600">Stop Tracking</button>
+            <div class="mb-4">
+                <label for="showOthers" class="block text-sm font-medium text-gray-700">Show Other Users?</label>
+                <select id="showOthers" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                </select>
             </div>
-            <div id="userList" class="flex-grow overflow-y-auto">
-                <h3 class="font-bold mb-2">Active Users</h3>
-                <!-- User list will be populated here -->
-            </div>
+            <button id="startButton" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Start Tracking</button>
         </div>
-        <div id="map" class="flex-grow"></div>
+    </div>
+    <header class="bg-white shadow-md p-4 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-800">Enhanced Location Tracker</h1>
+        <div id="controls" class="hidden">
+            <button id="stopTracking" class="bg-red-500 text-white p-2 rounded hover:bg-red-600 mr-2">Stop Tracking</button>
+            <select id="mapType" class="p-2 border rounded">
+                <option value="streets">Streets</option>
+                <option value="satellite">Satellite</option>
+                <option value="hybrid">Hybrid</option>
+            </select>
+        </div>
+    </header>
+    <main class="flex-grow relative">
+        <div id="map" class="absolute inset-0"></div>
+        <div id="userList" class="absolute top-4 right-4 bg-white rounded-lg shadow-md p-4 max-h-64 overflow-y-auto z-[1000] hidden">
+            <h3 class="font-bold mb-2">Active Users</h3>
+            <!-- User list will be populated here -->
+        </div>
     </main>
     <script src="script.js"></script>
 </body>
 </html>
-
