@@ -1,5 +1,5 @@
 let map, myMarker, myPath, watchId;
-const key = 'mFAtrJRBs32fMCgKsHiM';
+const key = 'NuQfsR0nZFdLImhIGPBB'; // MapTiler API key
 const users = {};
 let myUsername = '';
 let showOthers = false;
@@ -13,9 +13,14 @@ function initMap() {
             return;
         }
 
-        map = L.map('map', {
+        const mapElement = document.getElementById('map');
+        if (!mapElement) {
+            throw new Error('Map container not found');
+        }
+
+        map = L.map(mapElement, {
             zoomControl: false,
-            attributionControl: false
+            attributionControl: true
         }).setView([0, 0], 2);
 
         L.control.zoom({
@@ -40,29 +45,30 @@ function initMap() {
 
 function setMapLayer(type) {
     console.log('Setting map layer:', type);
-    if (map.baseLayer) {
+    if (map && map.baseLayer) {
         map.removeLayer(map.baseLayer);
     }
 
-    let url;
+    let style;
     switch (type) {
         case 'satellite':
-            url = `https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=${key}`;
+            style = 'satellite';
             break;
         case 'hybrid':
-            url = `https://api.maptiler.com/maps/topo/{z}/{x}/{y}.png?key=${key}`;
+            style = 'hybrid';
             break;
         default:
-            url = `https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=${key}`;
+            style = 'streets';
     }
 
-    map.baseLayer = L.tileLayer(url, {
-        tileSize: 512,
-        zoomOffset: -1,
-        minZoom: 1,
-        attribution: '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap contributors</a>',
-        crossOrigin: true
-    }).addTo(map);
+    const url = `https://api.maptiler.com/maps/${style}/style.json?key=${key}`;
+
+    if (map) {
+        map.baseLayer = L.maplibreGL({
+            style: url,
+            attribution: '&copy; <a href="https://www.maptiler.com/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+        }).addTo(map);
+    }
 }
 
 function startTracking() {
@@ -135,9 +141,6 @@ function updatePosition(position) {
 
     myPath.addLatLng(latlng);
     map.setView(latlng);
-
-    // Here you would send the user's location to your server
-    // sendLocationToServer(myUsername, lat, lng);
 
     if (showOthers) {
         fetchOtherUsers();
@@ -217,9 +220,17 @@ function navigateToUser(username) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', (event) => {
-    console.log('DOM fully loaded and parsed');
-    initMap(); // Initialize map on page load
+function ensureMapLibrariesLoaded(callback) {
+    if (window.L && window.L.maplibreGL) {
+        callback();
+    } else {
+        setTimeout(() => ensureMapLibrariesLoaded(callback), 100);
+    }
+}
+
+ensureMapLibrariesLoaded(() => {
+    console.log('Map libraries loaded, initializing map...');
+    initMap();
     document.getElementById('startButton').addEventListener('click', startTracking);
     document.getElementById('stopTracking').addEventListener('click', stopTracking);
     document.getElementById('mapType').addEventListener('change', (e) => setMapLayer(e.target.value));

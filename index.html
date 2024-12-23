@@ -4,14 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enhanced Location Tracker</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.css" rel="stylesheet" />
     <style>
         #map { height: 100%; width: 100%; }
         .custom-icon { background-color: #4285F4; color: white; padding: 5px; border-radius: 50%; }
-        .leaflet-control-zoom { box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
-        .leaflet-control-zoom a { background-color: white; color: #666; }
     </style>
 </head>
 <body class="h-screen flex flex-col">
@@ -36,20 +33,148 @@
         <h1 class="text-2xl font-bold text-gray-800">Enhanced Location Tracker</h1>
         <div id="controls" class="hidden">
             <button id="stopTracking" class="bg-red-500 text-white p-2 rounded hover:bg-red-600 mr-2">Stop Tracking</button>
-            <select id="mapType" class="p-2 border rounded">
-                <option value="streets">Streets</option>
-                <option value="satellite">Satellite</option>
-                <option value="hybrid">Hybrid</option>
-            </select>
         </div>
     </header>
     <main class="flex-grow relative">
         <div id="map" class="absolute inset-0"></div>
         <div id="userList" class="absolute top-4 right-4 bg-white rounded-lg shadow-md p-4 max-h-64 overflow-y-auto z-[1000] hidden">
             <h3 class="font-bold mb-2">Active Users</h3>
-            <!-- User list will be populated here -->
         </div>
     </main>
-    <script src="script.js"></script>
+    <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+    <script>
+        let map, marker, watchId;
+        const key = 'NuQfsR0nZFdLImhIGPBB'; // MapTiler API key
+        const users = {};
+        let myUsername = '';
+        let showOthers = false;
+
+        function initMap() {
+            map = new maplibregl.Map({
+                container: 'map',
+                style: `https://api.maptiler.com/maps/streets/style.json?key=${key}`,
+                center: [0, 0],
+                zoom: 2
+            });
+
+            map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+        }
+
+        function startTracking() {
+            const usernameInput = document.getElementById('usernameInput');
+            const showOthersSelect = document.getElementById('showOthers');
+
+            myUsername = usernameInput.value.trim();
+            showOthers = showOthersSelect.value === 'yes';
+
+            if (!myUsername) {
+                alert('Please enter a valid username');
+                return;
+            }
+
+            document.getElementById('setupModal').style.display = 'none';
+            document.getElementById('controls').classList.remove('hidden');
+            if (showOthers) {
+                document.getElementById('userList').classList.remove('hidden');
+            }
+
+            initMap();
+
+            if ('geolocation' in navigator) {
+                watchId = navigator.geolocation.watchPosition(updatePosition, handleError, {
+                    enableHighAccuracy: true,
+                    maximumAge: 30000,
+                    timeout: 27000
+                });
+            } else {
+                alert('Geolocation is not supported by your browser');
+            }
+        }
+
+        function stopTracking() {
+            if (watchId !== undefined) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = undefined;
+            }
+            if (marker) {
+                marker.remove();
+                marker = null;
+            }
+
+            document.getElementById('setupModal').style.display = 'flex';
+            document.getElementById('controls').classList.add('hidden');
+            document.getElementById('userList').classList.add('hidden');
+
+            Object.values(users).forEach(user => user.marker.remove());
+        }
+
+        function updatePosition(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+
+            if (!marker) {
+                marker = new maplibregl.Marker({
+                    color: '#4285F4'
+                }).setLngLat([lng, lat]).addTo(map);
+            } else {
+                marker.setLngLat([lng, lat]);
+            }
+
+            map.setCenter([lng, lat]);
+
+            if (showOthers) {
+                fetchOtherUsers(lat, lng);
+            }
+        }
+
+        function handleError(error) {
+            console.error('Geolocation error:', error);
+            alert(`An error occurred while tracking location: ${error.message}`);
+        }
+
+        function fetchOtherUsers(lat, lng) {
+            const dummyUsers = ['User1', 'User2', 'User3'];
+            dummyUsers.forEach(name => {
+                if (name === myUsername) return;
+                const otherLat = lat + (Math.random() - 0.5) * 0.1;
+                const otherLng = lng + (Math.random() - 0.5) * 0.1;
+                updateUserMarker(name, otherLat, otherLng);
+            });
+            updateUserList();
+        }
+
+        function updateUserMarker(name, lat, lng) {
+            if (!users[name]) {
+                users[name] = {
+                    marker: new maplibregl.Marker({
+                        color: '#FF0000'
+                    }).setLngLat([lng, lat]).addTo(map)
+                };
+            } else {
+                users[name].marker.setLngLat([lng, lat]);
+            }
+        }
+
+        function updateUserList() {
+            const userListElement = document.getElementById('userList');
+            userListElement.innerHTML = '<h3 class="font-bold mb-2">Active Users</h3>';
+            Object.keys(users).forEach(name => {
+                const div = document.createElement('div');
+                div.className = 'mb-2 p-2 bg-gray-100 rounded flex justify-between items-center';
+                div.innerHTML = `
+                    <span>${name}</span>
+                `;
+                userListElement.appendChild(div);
+            });
+        }
+
+        document.getElementById('startButton').addEventListener('click', startTracking);
+        document.getElementById('stopTracking').addEventListener('click', stopTracking);
+
+        window.onerror = function (message, source, lineno, colno, error) {
+            console.error('Global error:', message, 'at', source, lineno, colno, error);
+            alert('An unexpected error occurred. Please check the console log or try reloading the page.');
+        };
+    </script>
 </body>
 </html>
