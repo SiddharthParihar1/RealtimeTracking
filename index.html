@@ -3,40 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-time User Tracking Map</title>
+    <title>Multi-User Location Tracker</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-        }
-        #map {
-            height: calc(100% - 50px);
-            width: 100%;
-        }
-        #controls {
-            height: 50px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #f0f0f0;
-        }
-        button {
-            margin: 0 10px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
+        #map { height: 100%; width: 100%; }
+        .custom-icon { background-color: #3498db; color: white; padding: 5px; border-radius: 50%; }
     </style>
 </head>
-<body>
-    <div id="map"></div>
-    <div id="controls">
-        <button id="startTracking">Start Tracking</button>
-        <button id="stopTracking">Stop Tracking</button>
-    </div>
+<body class="h-screen flex flex-col">
+    <header class="bg-blue-600 text-white p-4">
+        <h1 class="text-2xl font-bold">Multi-User Location Tracker</h1>
+    </header>
+    <main class="flex-grow flex">
+        <div id="sidebar" class="w-64 bg-gray-100 p-4 flex flex-col">
+            <div id="usernameSection" class="mb-4">
+                <input type="text" id="usernameInput" placeholder="Enter username" class="w-full p-2 border rounded">
+                <button id="setUsername" class="mt-2 w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Set Username</button>
+            </div>
+            <div id="controls" class="mb-4">
+                <button id="startTracking" class="w-full bg-green-500 text-white p-2 rounded hover:bg-green-600 mb-2">Start Tracking</button>
+                <button id="stopTracking" class="w-full bg-red-500 text-white p-2 rounded hover:bg-red-600">Stop Tracking</button>
+            </div>
+            <div id="userList" class="flex-grow overflow-y-auto">
+                <h3 class="font-bold mb-2">Active Users</h3>
+                <!-- User list will be populated here -->
+            </div>
+        </div>
+        <div id="map" class="flex-grow"></div>
+    </main>
     <script src="script.js"></script>
 </body>
 </html>
