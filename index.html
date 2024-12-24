@@ -19,25 +19,19 @@
                 <label for="usernameInput" class="block text-sm font-medium text-gray-700">Username</label>
                 <input type="text" id="usernameInput" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
             </div>
-            <div class="mb-4">
-                <label for="showOthers" class="block text-sm font-medium text-gray-700">Show Other Users?</label>
-                <select id="showOthers" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                </select>
-            </div>
             <button id="startButton" class="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600">Start Tracking</button>
         </div>
     </div>
     <header class="bg-white shadow-md p-4 flex justify-between items-center">
         <h1 class="text-2xl font-bold text-gray-800">Enhanced Location Tracker</h1>
         <div id="controls" class="hidden">
-            <button id="stopTracking" class="bg-red-500 text-white p-2 rounded hover:bg-red-600 mr-2">Stop Tracking</button>
+            <span id="userCount" class="mr-4 font-semibold">Users: 0</span>
+            <button id="stopTracking" class="bg-red-500 text-white p-2 rounded hover:bg-red-600">Stop Tracking</button>
         </div>
     </header>
     <main class="flex-grow relative">
         <div id="map" class="absolute inset-0"></div>
-        <div id="userList" class="absolute top-4 right-4 bg-white rounded-lg shadow-md p-4 max-h-64 overflow-y-auto z-[1000] hidden">
+        <div id="userList" class="absolute top-4 right-4 bg-white rounded-lg shadow-md p-4 max-h-64 overflow-y-auto z-[1000]">
             <h3 class="font-bold mb-2">Active Users</h3>
         </div>
     </main>
@@ -47,7 +41,6 @@
         const key = 'NuQfsR0nZFdLImhIGPBB'; // MapTiler API key
         const users = {};
         let myUsername = '';
-        let showOthers = false;
 
         function initMap() {
             map = new maplibregl.Map({
@@ -62,10 +55,7 @@
 
         function startTracking() {
             const usernameInput = document.getElementById('usernameInput');
-            const showOthersSelect = document.getElementById('showOthers');
-
             myUsername = usernameInput.value.trim();
-            showOthers = showOthersSelect.value === 'yes';
 
             if (!myUsername) {
                 alert('Please enter a valid username');
@@ -74,9 +64,7 @@
 
             document.getElementById('setupModal').style.display = 'none';
             document.getElementById('controls').classList.remove('hidden');
-            if (showOthers) {
-                document.getElementById('userList').classList.remove('hidden');
-            }
+            document.getElementById('userList').classList.remove('hidden');
 
             initMap();
 
@@ -89,6 +77,9 @@
             } else {
                 alert('Geolocation is not supported by your browser');
             }
+
+            // Start fetching other users' locations
+            setInterval(fetchAllUsers, 5000); // Fetch every 5 seconds
         }
 
         function stopTracking() {
@@ -106,6 +97,8 @@
             document.getElementById('userList').classList.add('hidden');
 
             Object.values(users).forEach(user => user.marker.remove());
+            users = {};
+            updateUserCount();
         }
 
         function updatePosition(position) {
@@ -122,9 +115,8 @@
 
             map.setCenter([lng, lat]);
 
-            if (showOthers) {
-                fetchOtherUsers(lat, lng);
-            }
+            // Send my location to the server
+            sendMyLocation(lat, lng);
         }
 
         function handleError(error) {
@@ -132,24 +124,33 @@
             alert(`An error occurred while tracking location: ${error.message}`);
         }
 
-        function fetchOtherUsers(lat, lng) {
-            const dummyUsers = ['User1', 'User2', 'User3'];
-            dummyUsers.forEach(name => {
-                if (name === myUsername) return;
-                const otherLat = lat + (Math.random() - 0.5) * 0.1;
-                const otherLng = lng + (Math.random() - 0.5) * 0.1;
-                updateUserMarker(name, otherLat, otherLng);
-            });
+        function sendMyLocation(lat, lng) {
+            // In a real application, you would send this data to your server
+            console.log(`Sending my location: ${myUsername}, ${lat}, ${lng}`);
+            // Simulating server update
+            updateUserMarker(myUsername, lat, lng);
+        }
+
+        function fetchAllUsers() {
+            // In a real application, you would fetch this data from your server
+            // For this example, we'll just update the current user's location
+            if (marker) {
+                const lngLat = marker.getLngLat();
+                updateUserMarker(myUsername, lngLat.lat, lngLat.lng);
+            }
             updateUserList();
+            updateUserCount();
         }
 
         function updateUserMarker(name, lat, lng) {
             if (!users[name]) {
                 users[name] = {
                     marker: new maplibregl.Marker({
-                        color: '#FF0000'
-                    }).setLngLat([lng, lat]).addTo(map)
+                        color: name === myUsername ? '#4285F4' : '#FF0000'
+                    }).setLngLat([lng, lat]).addTo(map),
+                    popup: new maplibregl.Popup({ offset: 25 }).setText(name)
                 };
+                users[name].marker.setPopup(users[name].popup);
             } else {
                 users[name].marker.setLngLat([lng, lat]);
             }
@@ -161,11 +162,22 @@
             Object.keys(users).forEach(name => {
                 const div = document.createElement('div');
                 div.className = 'mb-2 p-2 bg-gray-100 rounded flex justify-between items-center';
+                const lngLat = users[name].marker.getLngLat();
                 div.innerHTML = `
                     <span>${name}</span>
+                    <span class="text-xs text-gray-500">${lngLat.lat.toFixed(2)}, ${lngLat.lng.toFixed(2)}</span>
                 `;
+                div.addEventListener('click', () => {
+                    map.flyTo({ center: lngLat, zoom: 15 });
+                    users[name].popup.addTo(map);
+                });
                 userListElement.appendChild(div);
             });
+        }
+
+        function updateUserCount() {
+            const userCount = Object.keys(users).length;
+            document.getElementById('userCount').textContent = `Users: ${userCount}`;
         }
 
         document.getElementById('startButton').addEventListener('click', startTracking);
@@ -178,3 +190,4 @@
     </script>
 </body>
 </html>
+
